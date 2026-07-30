@@ -8,5 +8,6 @@ dependencies = [
     "alembic>=1.18.5",
     "fastapi>=0.140.0",
     "pydantic-settings>=2.14.2",
+    "uuid6>=2025.0.1",
     "uvicorn>=0.51.0",
 ]

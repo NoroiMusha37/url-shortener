@@ -1,5 +1,6 @@
 import uuid
-from datetime import datetime
+import uuid6
+from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import String, DateTime, func, ForeignKey, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -14,7 +15,7 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         primary_key=True,
-        default=uuid.uuid4,
+        default=uuid6.uuid7,
     )
     username: Mapped[str] = mapped_column(String(32), unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
@@ -31,12 +32,17 @@ class User(Base):
 class Link(Base):
     __tablename__ = "links"
 
-    short_code: Mapped[str] = mapped_column(
-        String(10), primary_key=True
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        primary_key=True,
+        default=uuid6.uuid7,
     )
+    short_code: Mapped[str] = mapped_column(String(8), unique=True, index=True)
     long_url: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
+    url_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.now(timezone.utc) + timedelta(days=365)
     )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
 
@@ -54,7 +60,7 @@ class Click(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
         primary_key=True,
-        default=uuid.uuid4,
+        default=uuid6.uuid7,
     )
     clicked_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
