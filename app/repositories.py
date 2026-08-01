@@ -1,9 +1,12 @@
-from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
+from datetime import timedelta
+
+from sqlalchemy import select, func
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logger import LoggerMixin
-from app.models import User
+from app.models import User, Link
 
 
 class UsersRepository(LoggerMixin):
@@ -40,6 +43,48 @@ class UsersRepository(LoggerMixin):
 class LinksRepository(LoggerMixin):
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def get_short_code_by_url_hash(self, url_hash: str):
+        stmt = select(Link.short_code).where(Link.url_hash == url_hash)
+        self.log_info("Getting link by url hash...")
+
+        try:
+            result = await self.session.execute(stmt)
+            return result.scalar_one_or_none()
+        except SQLAlchemyError as e:
+            self.log_error("DB query failed while trying to get link", error=e)
+            raise
+
+    async def upsert(
+            self, short_code: str, long_url: str, url_hash: str, user_id: str
+    ):
+        stmt = (insert(Link)
+                .values(
+            short_code=short_code,
+            long_url=long_url,
+            url_hash=url_hash,
+            user_id=user_id,
+        )
+                .on_conflict_do_update(
+            index_elements=["url_hash"],
+            set_={"expires_at": func.now() + timedelta(days=365)},
+            where=(Link.expires_at < func.now() + timedelta(days=364))
+        )
+                .returning(Link.short_code)
+                )
+
+        self.log_info("Upserting link...")
+        try:
+            result = await self.session.execute(stmt)
+            await self.session.commit()
+            return result.scalar_one_or_none()
+        except IntegrityError:
+            await self.session.rollback()
+            raise
+        except SQLAlchemyError as e:
+            self.log_error("DB query failed while trying to upsert link", error=e)
+            await self.session.rollback()
+            raise
 
 
 class DBRepository:

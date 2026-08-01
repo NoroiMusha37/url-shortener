@@ -48,7 +48,7 @@ async def login_for_access_token(
 ):
     user = await db_repo.users.get_by_username(username=form_data.username)
 
-    Logger.info(f"Logging user {user.username} in...")
+    Logger.info(f"Logging user {form_data.username} in...")
     if not user:
         verify_password(form_data.password, DUMMY_HASH)
         Logger.error(f"Invalid username")

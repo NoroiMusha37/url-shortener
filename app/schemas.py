@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, HttpUrl
 
 
 class Token(BaseModel):
@@ -21,3 +21,12 @@ class UserResponse(BaseModel):
     admin: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LinkRequest(BaseModel):
+    url: HttpUrl
+
+
+class LinkResponse(BaseModel):
+    short_code: str
+    original_url: HttpUrl
