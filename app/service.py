@@ -1,4 +1,5 @@
 import hashlib
+import ipaddress
 import string
 from secrets import choice
 from urllib.parse import urlparse, urlunparse
@@ -24,3 +25,22 @@ def normalize_url(url: str) -> str:
 
 def hash_url(url: str) -> str:
     return hashlib.sha256(url.encode("utf-8")).hexdigest()
+
+
+def truncate_ip(ip_str: str) -> str:
+    if not ip_str:
+        return ""
+
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        if ip.version == 4:
+            network = ipaddress.ip_network(f"{ip}/24", strict=False)
+            return str(network.network_address)
+
+        elif ip.version == 6:
+            network = ipaddress.ip_network(f"{ip}/48", strict=False)
+            return str(network.network_address)
+    except ValueError:
+        return ""
+
+    return ""

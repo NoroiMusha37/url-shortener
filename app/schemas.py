@@ -1,7 +1,20 @@
 import uuid
 from datetime import datetime
+from typing import Annotated
 
+from fastapi import Path
 from pydantic import BaseModel, ConfigDict, HttpUrl
+
+from app.config import settings
+
+ShortCodePath = Annotated[
+    str,
+    Path(
+        ...,
+        min_length=settings.SHORT_CODE_LENGTH,
+        max_length=settings.SHORT_CODE_LENGTH
+    )
+]
 
 
 class Token(BaseModel):

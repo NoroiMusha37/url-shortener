@@ -1,7 +1,7 @@
 import uuid
-import uuid6
 from datetime import datetime, timedelta
 
+import uuid6
 from sqlalchemy import String, DateTime, func, ForeignKey, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import expression
@@ -67,8 +67,8 @@ class Click(Base):
     )
     ip_address: Mapped[str] = mapped_column(String(64), index=True)
     user_agent: Mapped[str] = mapped_column(Text)
-    link_short_code: Mapped[str] = mapped_column(
-        ForeignKey("links.short_code", ondelete="CASCADE")
+    link_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("links.id", ondelete="CASCADE")
     )
 
     link: Mapped["Link"] = relationship("Link", back_populates="clicks")

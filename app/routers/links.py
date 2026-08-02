@@ -1,13 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException
-from starlette import status
+from fastapi import (
+    APIRouter, Depends, HTTPException, BackgroundTasks, Request
+)
 from sqlalchemy.exc import IntegrityError
+from starlette import status
+from starlette.responses import RedirectResponse
 
 from app.config import settings
 from app.dependencies import get_db_repo, get_current_user
 from app.logger import Logger
 from app.repositories import DBRepository
-from app.schemas import LinkResponse, LinkRequest
-from app.service import hash_url, normalize_url, generate_short_code
+from app.schemas import LinkResponse, LinkRequest, ShortCodePath
+from app.service import (
+    hash_url, normalize_url, generate_short_code, truncate_ip
+)
 
 router = APIRouter(tags=["links"])
 
@@ -18,7 +23,7 @@ router = APIRouter(tags=["links"])
 async def create_short_code(
         data_in: LinkRequest,
         db_repo: DBRepository = Depends(get_db_repo),
-        current_user = Depends(get_current_user)
+        current_user=Depends(get_current_user)
 ):
     Logger.info(f"Shortening url {data_in.url}...")
     hashed_url = hash_url(normalize_url(str(data_in.url)))
@@ -45,4 +50,35 @@ async def create_short_code(
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail="Collision: cannot generate short code"
+    )
+
+
+@router.get("/{short_code}")
+async def get_short_code(
+        short_code: ShortCodePath,
+        request: Request,
+        background_tasks: BackgroundTasks,
+        db_repo: DBRepository = Depends(get_db_repo)
+):
+    Logger.info("Redirecting...")
+    link = await db_repo.links.get_by_short_code(short_code)
+
+    if not link:
+        Logger.error(f"Url with short code {short_code} either expired or didn't exist")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    raw_ip = request.client.host if request.client else ""
+
+    background_tasks.add_task(
+        db_repo.clicks.create,
+        ip_address=truncate_ip(raw_ip),
+        user_agent=request.headers.get("user-agent", ""),
+        link_id=link.id
+    )
+
+    Logger.info("Redirected successfully")
+    return RedirectResponse(
+        url=link.long_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT
     )
