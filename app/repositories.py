@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 
 from sqlalchemy import select, func
@@ -6,7 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logger import LoggerMixin
-from app.models import User, Link
+from app.models import User, Link, Click
 
 
 class UsersRepository(LoggerMixin):
@@ -55,6 +56,20 @@ class LinksRepository(LoggerMixin):
             self.log_error("DB query failed while trying to get link", error=e)
             raise
 
+    async def get_by_short_code(self, short_code: str):
+        stmt = select(Link).where(
+            Link.short_code == short_code,
+            Link.expires_at > func.now()
+        )
+        self.log_info("Getting url by short code...")
+
+        try:
+            result = await self.session.execute(stmt)
+            return result.scalar_one_or_none()
+        except SQLAlchemyError as e:
+            self.log_error("DB query failed while trying to get url", error=e)
+            raise
+
     async def upsert(
             self, short_code: str, long_url: str, url_hash: str, user_id: str
     ):
@@ -87,7 +102,30 @@ class LinksRepository(LoggerMixin):
             raise
 
 
+class ClicksRepository(LoggerMixin):
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def create(self, ip_address: str, user_agent: str, link_id: uuid.UUID):
+        click = Click(
+            ip_address=ip_address,
+            user_agent=user_agent,
+            link_id=link_id,
+        )
+        self.session.add(click)
+
+        self.log_info("Creating click...")
+        try:
+            await self.session.commit()
+            return click
+        except SQLAlchemyError as e:
+            self.log_error("DB query failed while trying to create click", error=e)
+            await self.session.rollback()
+            raise
+
+
 class DBRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.links = LinksRepository(session)
         self.users = UsersRepository(session)
+        self.clicks = ClicksRepository(session)
