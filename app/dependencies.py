@@ -2,6 +2,7 @@ from typing import Annotated
 
 import jwt
 from fastapi import Depends, HTTPException, status
+from fastapi.params import Query
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,3 +56,14 @@ async def get_current_admin_user(
 
 def get_db_repo(session: AsyncSession = Depends(get_db)) -> DBRepository:
     return DBRepository(session)
+
+
+class PaginationParams:
+    def __init__(
+            self,
+            page: int = Query(1, ge=1, le=1000),
+            size: int = Query(20, ge=1, le=50)
+    ):
+        self.page = page
+        self.size = size
+        self.offset = (page - 1) * size

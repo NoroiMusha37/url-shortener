@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dependencies import PaginationParams
 from app.logger import LoggerMixin
 from app.models import User, Link, Click
 
@@ -98,6 +99,38 @@ class LinksRepository(LoggerMixin):
             raise
         except SQLAlchemyError as e:
             self.log_error("DB query failed while trying to upsert link", error=e)
+            await self.session.rollback()
+            raise
+
+    async def get_user_links_count(self, user_id: uuid.UUID):
+        stmt = select(func.count(Link.id)).where(Link.user_id == user_id)
+
+        self.log_info("Getting user's links count...")
+        try:
+            result = await self.session.execute(stmt)
+            return result.scalar_one_or_none()
+        except SQLAlchemyError as e:
+            self.log_error("DB query failed while trying to get user links count", error=e)
+            await self.session.rollback()
+            raise
+
+    async def get_paginated_list(
+            self, user_id: uuid.UUID, params: PaginationParams
+    ):
+        stmt = (
+            select(Link)
+            .where(Link.user_id == user_id)
+            .order_by(Link.expires_at.asc())
+            .offset(params.offset)
+            .limit(params.size)
+        )
+
+        self.log_info("Getting paginated links...")
+        try:
+            result = await self.session.execute(stmt)
+            return result.scalars().all()
+        except SQLAlchemyError as e:
+            self.log_error("DB query failed while trying to get paginated links", error=e)
             await self.session.rollback()
             raise
 

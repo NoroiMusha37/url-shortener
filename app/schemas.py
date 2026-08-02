@@ -40,12 +40,28 @@ class LinkRequest(BaseModel):
     url: HttpUrl
 
 
-class LinkResponse(BaseModel):
+class BaseLink(BaseModel):
     short_code: str
     original_url: HttpUrl
+
+
+class LinkResponse(BaseLink):
+    pass
+
+
+class LinkObject(BaseLink):
+    expires_at: datetime
 
 
 class LinkStatsResponse(BaseModel):
     total_clicks: int
     last_24_hours_clicks: int
     top_referrers: dict[str, int]
+
+
+class LinksListResponse(BaseModel):
+    links: list[LinkObject]
+    page: int
+    size: int
+    pages: int
+    total: int

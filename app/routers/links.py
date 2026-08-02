@@ -1,20 +1,26 @@
 import asyncio
+from math import ceil
 
 from fastapi import (
-    APIRouter, Depends, HTTPException, BackgroundTasks, Request
+    APIRouter, Depends, HTTPException, BackgroundTasks, Request, status
 )
 from sqlalchemy.exc import IntegrityError
-from starlette import status
 from starlette.responses import RedirectResponse
 
 from app.config import settings
-from app.dependencies import get_db_repo, get_current_user, get_current_admin_user
+from app.dependencies import (
+    get_db_repo, get_current_user, get_current_admin_user, PaginationParams
+)
 from app.logger import Logger
 from app.models import User
 from app.repositories import DBRepository
-from app.schemas import LinkResponse, LinkRequest, ShortCodePath, LinkStatsResponse
+from app.schemas import (
+    LinkResponse, LinkRequest, ShortCodePath,
+    LinkStatsResponse, LinksListResponse
+)
 from app.service import (
-    hash_url, normalize_url, generate_short_code, truncate_ip
+    hash_url, normalize_url, generate_short_code,
+    truncate_ip, get_link_by_short_code
 )
 
 router = APIRouter(tags=["links"])
@@ -64,13 +70,7 @@ async def get_short_code(
         db_repo: DBRepository = Depends(get_db_repo)
 ):
     Logger.info("Redirecting...")
-    link = await db_repo.links.get_by_short_code(short_code)
-
-    if not link:
-        Logger.error(f"Url with short code {short_code} either expired or didn't exist")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-        )
+    link = await get_link_by_short_code(short_code, db_repo)
 
     raw_ip = request.client.host if request.client else ""
 
@@ -95,6 +95,9 @@ async def get_link_stats(
         admin: User = Depends(get_current_admin_user)
 ):
     Logger.info("Calculating stats...")
+
+    _ = await get_link_by_short_code(short_code, db_repo)
+
     total_clicks, last_24_hours_clicks, top_referrers = await asyncio.gather(
         db_repo.clicks.get_total_clicks(short_code),
         db_repo.clicks.get_last_24_hours_clicks(short_code),
@@ -105,4 +108,26 @@ async def get_link_stats(
         total_clicks=total_clicks,
         last_24_hours_clicks=last_24_hours_clicks,
         top_referrers=top_referrers
+    )
+
+
+@router.get("/links", response_model=LinksListResponse)
+async def get_links(
+        db_repo: DBRepository = Depends(get_db_repo),
+        current_user: User = Depends(get_current_user),
+        params: PaginationParams = Depends()
+):
+    Logger.info("Getting paginated links list...")
+
+    links, count = await asyncio.gather(
+        db_repo.links.get_paginated_list(current_user.id, params),
+        db_repo.links.get_user_links_count(current_user.id)
+    )
+
+    return LinksListResponse(
+        links=links,
+        page=params.page,
+        size=params.size,
+        pages=ceil(count/params.size),
+        total=count
     )

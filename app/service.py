@@ -4,6 +4,11 @@ import string
 from secrets import choice
 from urllib.parse import urlparse, urlunparse
 
+from fastapi import HTTPException, status
+
+from app.logger import Logger
+from app.repositories import DBRepository
+
 ALPHABET = string.ascii_letters + string.digits
 
 
@@ -44,3 +49,15 @@ def truncate_ip(ip_str: str) -> str:
         return ""
 
     return ""
+
+
+async def get_link_by_short_code(short_code: str, db_repo: DBRepository):
+    link = await db_repo.links.get_by_short_code(short_code)
+
+    if not link:
+        Logger.error(f"Url with short code {short_code} either expired or didn't exist")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    return link
