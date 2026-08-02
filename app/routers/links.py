@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import (
     APIRouter, Depends, HTTPException, BackgroundTasks, Request
 )
@@ -6,10 +8,11 @@ from starlette import status
 from starlette.responses import RedirectResponse
 
 from app.config import settings
-from app.dependencies import get_db_repo, get_current_user
+from app.dependencies import get_db_repo, get_current_user, get_current_admin_user
 from app.logger import Logger
+from app.models import User
 from app.repositories import DBRepository
-from app.schemas import LinkResponse, LinkRequest, ShortCodePath
+from app.schemas import LinkResponse, LinkRequest, ShortCodePath, LinkStatsResponse
 from app.service import (
     hash_url, normalize_url, generate_short_code, truncate_ip
 )
@@ -75,10 +78,31 @@ async def get_short_code(
         db_repo.clicks.create,
         ip_address=truncate_ip(raw_ip),
         user_agent=request.headers.get("user-agent", ""),
+        referer=request.headers.get("referer"),
         link_id=link.id
     )
 
     Logger.info("Redirected successfully")
     return RedirectResponse(
         url=link.long_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT
+    )
+
+
+@router.get("/{short_code}/stats", response_model=LinkStatsResponse)
+async def get_link_stats(
+        short_code: ShortCodePath,
+        db_repo: DBRepository = Depends(get_db_repo),
+        admin: User = Depends(get_current_admin_user)
+):
+    Logger.info("Calculating stats...")
+    total_clicks, last_24_hours_clicks, top_referrers = await asyncio.gather(
+        db_repo.clicks.get_total_clicks(short_code),
+        db_repo.clicks.get_last_24_hours_clicks(short_code),
+        db_repo.clicks.get_top_referrers(short_code, settings.TOP_REFERRERS)
+    )
+
+    return LinkStatsResponse(
+        total_clicks=total_clicks,
+        last_24_hours_clicks=last_24_hours_clicks,
+        top_referrers=top_referrers
     )

@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     RETRIES_NUM: int = 3
     SHORT_CODE_LENGTH: int = 8
+    TOP_REFERRERS: int = 5
 
     model_config = SettingsConfigDict(
         env_file=ROOT_DIR / ".env",

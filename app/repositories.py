@@ -106,10 +106,16 @@ class ClicksRepository(LoggerMixin):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create(self, ip_address: str, user_agent: str, link_id: uuid.UUID):
+    async def create(
+            self,
+            ip_address: str,
+            user_agent: str,
+            referer: str | None,
+            link_id: uuid.UUID):
         click = Click(
             ip_address=ip_address,
             user_agent=user_agent,
+            referer=referer,
             link_id=link_id,
         )
         self.session.add(click)
@@ -120,6 +126,62 @@ class ClicksRepository(LoggerMixin):
             return click
         except SQLAlchemyError as e:
             self.log_error("DB query failed while trying to create click", error=e)
+            await self.session.rollback()
+            raise
+
+    async def get_total_clicks(self, short_code: str):
+        stmt = (
+            select(func.count(Click.id))
+            .join(Link)
+            .where(Link.short_code == short_code)
+        )
+
+        self.log_info("Getting total clicks...")
+        try:
+            result = await self.session.execute(stmt)
+            return result.scalar_one_or_none()
+        except SQLAlchemyError as e:
+            self.log_error("DB query failed while trying to get total clicks", error=e)
+            await self.session.rollback()
+            raise
+
+    async def get_last_24_hours_clicks(self, short_code: str):
+        stmt = (
+            select(func.count(Click.id))
+            .join(Link)
+            .where(
+                Link.short_code == short_code,
+                Click.clicked_at > func.now() - timedelta(hours=24))
+        )
+
+        self.log_info("Getting last 24 hours clicks...")
+        try:
+            result = await self.session.execute(stmt)
+            return result.scalar_one_or_none()
+        except SQLAlchemyError as e:
+            self.log_error("DB query failed while trying to get last 24 hours clicks", error=e)
+            await self.session.rollback()
+            raise
+
+    async def get_top_referrers(self, short_code: str, count: int):
+        stmt = (
+            select(Click.referer, func.count(Click.id).label("clicks_count"))
+            .join(Link)
+            .where(Link.short_code == short_code)
+            .group_by(Click.referer)
+            .order_by(func.count(Click.id).desc())
+            .limit(count)
+        )
+
+        self.log_info(f"Getting top {count} referrers...")
+        try:
+            result = await self.session.execute(stmt)
+            return [
+                {"referer": row.referer, "clicks": row.clicks_count}
+                for row in result.all()
+            ]
+        except SQLAlchemyError as e:
+            self.log_error("DB query failed while trying to get top referrers", error=e)
             await self.session.rollback()
             raise
 

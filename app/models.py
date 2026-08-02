@@ -67,6 +67,7 @@ class Click(Base):
     )
     ip_address: Mapped[str] = mapped_column(String(64), index=True)
     user_agent: Mapped[str] = mapped_column(Text)
+    referer: Mapped[str | None] = mapped_column(Text, nullable=True)
     link_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("links.id", ondelete="CASCADE")
     )
