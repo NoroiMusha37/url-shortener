@@ -7,6 +7,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 
 class Settings(BaseSettings):
     DATABASE_URL: str
+    REDIS_URL: str
     JWT_SECRET_KEY: str
     SIGNING_ALGORITHM: str = "HS256"
 

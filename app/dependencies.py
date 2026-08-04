@@ -1,10 +1,11 @@
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.params import Query
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -48,7 +49,7 @@ async def get_current_user(
 
 async def get_current_admin_user(
     current_user: Annotated[User, Depends(get_current_user)],
-):
+) -> User:
     if not current_user.admin:
         raise HTTPException(status_code=400, detail="User is not admin")
     return current_user
@@ -56,6 +57,10 @@ async def get_current_admin_user(
 
 def get_db_repo(session: AsyncSession = Depends(get_db)) -> DBRepository:
     return DBRepository(session)
+
+
+def get_redis(request: Request) -> Redis:
+    return request.state.redis
 
 
 class PaginationParams:
