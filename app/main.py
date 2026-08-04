@@ -5,6 +5,7 @@ from redis.asyncio import Redis
 
 from app.config import settings
 from app.middlewares import StructlogContextMiddleware
+from app.repositories.redis import RedisRepository
 from app.routers import auth, links
 
 
@@ -15,8 +16,9 @@ async def lifespan(app: FastAPI):
         decode_responses=True,
         socket_connect_timeout=2
     )
+    redis_repo = RedisRepository(redis)
 
-    yield {"redis": redis}
+    yield {"redis_repo": redis_repo}
 
     await redis.aclose()
 

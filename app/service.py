@@ -7,7 +7,7 @@ from urllib.parse import urlparse, urlunparse
 from fastapi import HTTPException, status
 
 from app.logger import Logger
-from app.repositories import DBRepository
+from app.repositories.db import DBRepository
 
 ALPHABET = string.ascii_letters + string.digits
 

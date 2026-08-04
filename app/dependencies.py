@@ -5,13 +5,13 @@ from fastapi import Depends, HTTPException, status, Request
 from fastapi.params import Query
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
-from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
 from app.models import User
-from app.repositories import DBRepository
+from app.repositories.db import DBRepository
+from app.repositories.redis import RedisRepository
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -59,8 +59,8 @@ def get_db_repo(session: AsyncSession = Depends(get_db)) -> DBRepository:
     return DBRepository(session)
 
 
-def get_redis(request: Request) -> Redis:
-    return request.state.redis
+def get_redis_repo(request: Request) -> RedisRepository:
+    return request.state.redis_repo
 
 
 class PaginationParams:

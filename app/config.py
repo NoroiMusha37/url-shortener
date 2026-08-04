@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     RETRIES_NUM: int = 3
     SHORT_CODE_LENGTH: int = 8
     TOP_REFERRERS: int = 5
+    REDIS_CACHE_TTL: int = 60 * 60
 
     model_config = SettingsConfigDict(
         env_file=ROOT_DIR / ".env",

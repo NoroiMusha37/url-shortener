@@ -9,11 +9,13 @@ from starlette.responses import RedirectResponse
 
 from app.config import settings
 from app.dependencies import (
-    get_db_repo, get_current_user, get_current_admin_user, PaginationParams
+    get_db_repo, get_current_user, get_current_admin_user,
+    PaginationParams, get_redis_repo
 )
 from app.logger import Logger
 from app.models import User
-from app.repositories import DBRepository
+from app.repositories.db import DBRepository
+from app.repositories.redis import RedisRepository
 from app.schemas import (
     LinkResponse, LinkRequest, ShortCodePath,
     LinkStatsResponse, LinksListResponse
@@ -32,11 +34,19 @@ router = APIRouter(tags=["links"])
 async def create_short_code(
         data_in: LinkRequest,
         db_repo: DBRepository = Depends(get_db_repo),
+        redis_repo: RedisRepository = Depends(get_redis_repo),
         current_user=Depends(get_current_user)
 ):
     Logger.info(f"Shortening url {data_in.url}...")
     hashed_url = hash_url(normalize_url(str(data_in.url)))
 
+    short_code = await redis_repo.cache.get_short_code_by_url_hash(hashed_url)
+
+    if short_code:
+        Logger.info("Cache hit")
+        return LinkResponse(short_code=short_code, original_url=data_in.url)
+
+    Logger.info("Cache missed")
     for _ in range(settings.RETRIES_NUM):
         new_code = generate_short_code(settings.SHORT_CODE_LENGTH)
 
@@ -53,6 +63,8 @@ async def create_short_code(
         if not short_code:
             short_code = await db_repo.links.get_short_code_by_url_hash(hashed_url)
 
+        await redis_repo.cache.set_short_code_by_url_hash(hashed_url, short_code)
+        
         return LinkResponse(short_code=short_code, original_url=data_in.url)
 
     Logger.error(f"Hit collision {settings.RETRIES_NUM} times for {data_in.url}")
@@ -67,10 +79,24 @@ async def get_short_code(
         short_code: ShortCodePath,
         request: Request,
         background_tasks: BackgroundTasks,
-        db_repo: DBRepository = Depends(get_db_repo)
+        db_repo: DBRepository = Depends(get_db_repo),
+        redis_repo: RedisRepository = Depends(get_redis_repo),
 ):
     Logger.info("Redirecting...")
-    link = await get_link_by_short_code(short_code, db_repo)
+
+    link = await redis_repo.cache.get_link_id_and_url_by_short_code(short_code)
+
+    if link is None:
+        Logger.info("Cache missed")
+        link = await get_link_by_short_code(short_code, db_repo)
+        
+        await redis_repo.cache.set_link_id_and_url_by_short_code(
+            short_code, 
+            str(link.id), 
+            link.long_url
+        )
+    else:
+        Logger.info("Cache hit")
 
     raw_ip = request.client.host if request.client else ""
 
@@ -128,6 +154,6 @@ async def get_links(
         links=links,
         page=params.page,
         size=params.size,
-        pages=ceil(count/params.size),
+        pages=ceil(count / params.size),
         total=count
     )

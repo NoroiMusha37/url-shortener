@@ -1,7 +1,7 @@
 import uuid
 from datetime import timedelta
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, Sequence
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +15,7 @@ class UsersRepository(LoggerMixin):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_username(self, username: str):
+    async def get_by_username(self, username: str) -> User | None:
         stmt = select(User).where(User.username == username)
 
         self.log_info("Getting user by username...")
@@ -28,7 +28,7 @@ class UsersRepository(LoggerMixin):
             )
             raise
 
-    async def create(self, username: str, hashed_password: str):
+    async def create(self, username: str, hashed_password: str) -> User:
         user = User(username=username, hashed_password=hashed_password)
         self.session.add(user)
 
@@ -46,7 +46,7 @@ class LinksRepository(LoggerMixin):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_short_code_by_url_hash(self, url_hash: str):
+    async def get_short_code_by_url_hash(self, url_hash: str) -> str | None:
         stmt = select(Link.short_code).where(Link.url_hash == url_hash)
         self.log_info("Getting link by url hash...")
 
@@ -57,7 +57,7 @@ class LinksRepository(LoggerMixin):
             self.log_error("DB query failed while trying to get link", error=e)
             raise
 
-    async def get_by_short_code(self, short_code: str):
+    async def get_by_short_code(self, short_code: str) -> Link | None:
         stmt = select(Link).where(
             Link.short_code == short_code,
             Link.expires_at > func.now()
@@ -73,7 +73,7 @@ class LinksRepository(LoggerMixin):
 
     async def upsert(
             self, short_code: str, long_url: str, url_hash: str, user_id: str
-    ):
+    ) -> str | None:
         stmt = (insert(Link)
                 .values(
             short_code=short_code,
@@ -102,7 +102,7 @@ class LinksRepository(LoggerMixin):
             await self.session.rollback()
             raise
 
-    async def get_user_links_count(self, user_id: uuid.UUID):
+    async def get_user_links_count(self, user_id: uuid.UUID) -> int:
         stmt = select(func.count(Link.id)).where(Link.user_id == user_id)
 
         self.log_info("Getting user's links count...")
@@ -116,7 +116,7 @@ class LinksRepository(LoggerMixin):
 
     async def get_paginated_list(
             self, user_id: uuid.UUID, params: PaginationParams
-    ):
+    ) -> Sequence[Link]:
         stmt = (
             select(Link)
             .where(Link.user_id == user_id)
@@ -144,7 +144,8 @@ class ClicksRepository(LoggerMixin):
             ip_address: str,
             user_agent: str,
             referer: str | None,
-            link_id: uuid.UUID):
+            link_id: uuid.UUID
+    ) -> Click:
         click = Click(
             ip_address=ip_address,
             user_agent=user_agent,
@@ -162,7 +163,7 @@ class ClicksRepository(LoggerMixin):
             await self.session.rollback()
             raise
 
-    async def get_total_clicks(self, short_code: str):
+    async def get_total_clicks(self, short_code: str) -> int:
         stmt = (
             select(func.count(Click.id))
             .join(Link)
@@ -178,7 +179,7 @@ class ClicksRepository(LoggerMixin):
             await self.session.rollback()
             raise
 
-    async def get_last_24_hours_clicks(self, short_code: str):
+    async def get_last_24_hours_clicks(self, short_code: str) -> int:
         stmt = (
             select(func.count(Click.id))
             .join(Link)
@@ -196,7 +197,9 @@ class ClicksRepository(LoggerMixin):
             await self.session.rollback()
             raise
 
-    async def get_top_referrers(self, short_code: str, count: int):
+    async def get_top_referrers(
+            self, short_code: str, count: int
+    ) -> list[dict[str, str]]:
         stmt = (
             select(Click.referer, func.count(Click.id).label("clicks_count"))
             .join(Link)

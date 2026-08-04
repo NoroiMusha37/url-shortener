@@ -1,4 +1,5 @@
 import uuid
+from collections import namedtuple
 from datetime import datetime
 from typing import Annotated
 
@@ -15,6 +16,8 @@ ShortCodePath = Annotated[
         max_length=settings.SHORT_CODE_LENGTH
     )
 ]
+
+CachedLink = namedtuple("CachedLink", ["id", "long_url"])
 
 
 class Token(BaseModel):
