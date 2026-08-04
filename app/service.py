@@ -28,7 +28,7 @@ def normalize_url(url: str) -> str:
     ))
 
 
-def hash_url(url: str) -> str:
+def hash_str(url: str) -> str:
     return hashlib.sha256(url.encode("utf-8")).hexdigest()
 
 

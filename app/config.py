@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     SHORT_CODE_LENGTH: int = 8
     TOP_REFERRERS: int = 5
     REDIS_CACHE_TTL: int = 60 * 60
+    RATE_LIMIT_TIME: int = 60 * 60
+    RATE_LIMIT: int = 100
 
     model_config = SettingsConfigDict(
         env_file=ROOT_DIR / ".env",

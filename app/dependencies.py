@@ -9,9 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
+from app.logger import Logger
 from app.models import User
 from app.repositories.db import DBRepository
 from app.repositories.redis import RedisRepository
+from app.service import hash_str
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -61,6 +63,20 @@ def get_db_repo(session: AsyncSession = Depends(get_db)) -> DBRepository:
 
 def get_redis_repo(request: Request) -> RedisRepository:
     return request.state.redis_repo
+
+
+async def rate_limiter(
+        request: Request,
+        redis_repo: RedisRepository = Depends(get_redis_repo)
+):
+    raw_ip = request.client.host if request.client else ""
+    hashed_ip = hash_str(raw_ip)
+
+    requests_access = await redis_repo.rate_limiter.increment_and_check(hashed_ip)
+
+    if not requests_access:
+        Logger.info("Requests limit reached")
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS)
 
 
 class PaginationParams:

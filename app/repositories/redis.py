@@ -77,6 +77,21 @@ class RateLimiterRepository(LoggerMixin):
     def __init__(self, redis: Redis):
         self.redis = redis
 
+    async def increment_and_check(self, ip_hash: str) -> bool:
+        key = f"rate_limit:{ip_hash}"
+
+        async with self.redis.pipeline() as pipe:
+            await pipe.incr(key)
+            await pipe.expire(key, settings.RATE_LIMIT_TIME, nx=True)
+            results = await pipe.execute()
+
+        requests_count = results[0]
+
+        if requests_count > settings.RATE_LIMIT:
+            return False
+
+        return True
+
 
 class RedisRepository:
     def __init__(self, redis: Redis):

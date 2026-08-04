@@ -6,13 +6,17 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
-from app.dependencies import get_db_repo
+from app.dependencies import get_db_repo, rate_limiter
 from app.logger import Logger
 from app.repositories.db import DBRepository
 from app.schemas import Token, UserCreate, UserResponse
 from app.security import verify_password, get_password_hash, create_access_token, DUMMY_HASH
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
+router = APIRouter(
+    prefix="/auth",
+    tags=["Auth"],
+    dependencies=[Depends(rate_limiter)]
+)
 
 
 @router.post(

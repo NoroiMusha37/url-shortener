@@ -10,7 +10,7 @@ from starlette.responses import RedirectResponse
 from app.config import settings
 from app.dependencies import (
     get_db_repo, get_current_user, get_current_admin_user,
-    PaginationParams, get_redis_repo
+    PaginationParams, get_redis_repo, rate_limiter
 )
 from app.logger import Logger
 from app.models import User
@@ -21,15 +21,17 @@ from app.schemas import (
     LinkStatsResponse, LinksListResponse
 )
 from app.service import (
-    hash_url, normalize_url, generate_short_code,
+    hash_str, normalize_url, generate_short_code,
     truncate_ip, get_link_by_short_code
 )
 
-router = APIRouter(tags=["links"])
+router = APIRouter(tags=["Links"], dependencies=[Depends(rate_limiter)])
 
 
 @router.post(
-    "/links", response_model=LinkResponse, status_code=status.HTTP_201_CREATED
+    "/links", 
+    response_model=LinkResponse, 
+    status_code=status.HTTP_201_CREATED
 )
 async def create_short_code(
         data_in: LinkRequest,
@@ -38,7 +40,7 @@ async def create_short_code(
         current_user=Depends(get_current_user)
 ):
     Logger.info(f"Shortening url {data_in.url}...")
-    hashed_url = hash_url(normalize_url(str(data_in.url)))
+    hashed_url = hash_str(normalize_url(str(data_in.url)))
 
     short_code = await redis_repo.cache.get_short_code_by_url_hash(hashed_url)
 
@@ -114,11 +116,14 @@ async def get_short_code(
     )
 
 
-@router.get("/{short_code}/stats", response_model=LinkStatsResponse)
+@router.get(
+    "/{short_code}/stats",
+    response_model=LinkStatsResponse,
+    dependencies=[Depends(get_current_admin_user)]
+)
 async def get_link_stats(
         short_code: ShortCodePath,
-        db_repo: DBRepository = Depends(get_db_repo),
-        admin: User = Depends(get_current_admin_user)
+        db_repo: DBRepository = Depends(get_db_repo)
 ):
     Logger.info("Calculating stats...")
 
