@@ -19,10 +19,10 @@ class CacheRepository(LoggerMixin):
     ) -> None:
         self.log_info("Caching short code...")
         try:
-            await self.redis.setex(
+            await self.redis.set(
                 f"hash:{url_hash}",
-                settings.REDIS_CACHE_TTL,
-                short_code
+                short_code,
+                ex=settings.REDIS_CACHE_TTL
             )
         except RedisError as e:
             self.log_error("Redis error while setting short code", error=e)
@@ -47,10 +47,10 @@ class CacheRepository(LoggerMixin):
         self.log_info("Caching link...")
         try:
             data = {"id": link_id, "long_url": long_url}
-            await self.redis.setex(
+            await self.redis.set(
                 f"short_code:{short_code}",
-                settings.REDIS_CACHE_TTL,
-                json.dumps(data)
+                json.dumps(data),
+                ex=settings.REDIS_CACHE_TTL
             )
         except RedisError as e:
             self.log_error("Redis error while setting link", error=e)

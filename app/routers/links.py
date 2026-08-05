@@ -18,7 +18,7 @@ from app.repositories.db import DBRepository
 from app.repositories.redis import RedisRepository
 from app.schemas import (
     LinkResponse, LinkRequest, ShortCodePath,
-    LinkStatsResponse, LinksListResponse, PaginationParams
+    LinkStatsResponse, LinksListResponse, PaginationParams, LinkObject
 )
 from app.service import (
     hash_str, normalize_url, generate_short_code,
@@ -74,6 +74,34 @@ async def create_short_code(
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail="Collision: cannot generate short code"
+    )
+
+
+@router.get("/links", response_model=LinksListResponse)
+async def get_links(
+        db_repo: DBRepository = Depends(get_db_repo),
+        current_user: User = Depends(get_current_user),
+        params: PaginationParams = Depends()
+):
+    Logger.info("Getting paginated links list...")
+
+    links, count = await asyncio.gather(
+        db_repo.links.get_paginated_list(current_user.id, params),
+        db_repo.links.get_user_links_count(current_user.id)
+    )
+
+    return LinksListResponse(
+        links=[
+            LinkObject(
+                short_code=link.short_code,
+                original_url=link.long_url,
+                expires_at=link.expires_at
+            ) for link in links
+        ],
+        page=params.page,
+        size=params.size,
+        pages=ceil(count / params.size),
+        total=count
     )
 
 
@@ -140,26 +168,4 @@ async def get_link_stats(
         total_clicks=total_clicks,
         last_24_hours_clicks=last_24_hours_clicks,
         top_referrers=top_referrers
-    )
-
-
-@router.get("/links", response_model=LinksListResponse)
-async def get_links(
-        db_repo: DBRepository = Depends(get_db_repo),
-        current_user: User = Depends(get_current_user),
-        params: PaginationParams = Depends()
-):
-    Logger.info("Getting paginated links list...")
-
-    links, count = await asyncio.gather(
-        db_repo.links.get_paginated_list(current_user.id, params),
-        db_repo.links.get_user_links_count(current_user.id)
-    )
-
-    return LinksListResponse(
-        links=links,
-        page=params.page,
-        size=params.size,
-        pages=ceil(count / params.size),
-        total=count
     )

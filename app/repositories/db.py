@@ -6,9 +6,9 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas import PaginationParams
 from app.logger import LoggerMixin
 from app.models import User, Link, Click
+from app.schemas import PaginationParams
 
 
 class UsersRepository(LoggerMixin):
@@ -199,7 +199,7 @@ class ClicksRepository(LoggerMixin):
 
     async def get_top_referrers(
             self, short_code: str, count: int
-    ) -> list[dict[str, str]]:
+    ) -> dict[str, int]:
         stmt = (
             select(Click.referer, func.count(Click.id).label("clicks_count"))
             .join(Link)
@@ -212,10 +212,10 @@ class ClicksRepository(LoggerMixin):
         self.log_info(f"Getting top {count} referrers...")
         try:
             result = await self.session.execute(stmt)
-            return [
-                {"referer": row.referer, "clicks": row.clicks_count}
+            return {
+                (row.referer if row.referer is not None else "Direct"): row.clicks_count
                 for row in result.all()
-            ]
+            }
         except SQLAlchemyError as e:
             self.log_error("DB query failed while trying to get top referrers", error=e)
             await self.session.rollback()
