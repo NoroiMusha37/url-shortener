@@ -10,7 +10,7 @@ from starlette.responses import RedirectResponse
 from app.config import settings
 from app.dependencies import (
     get_db_repo, get_current_user, get_current_admin_user,
-    PaginationParams, get_redis_repo, rate_limiter
+    get_redis_repo, rate_limiter
 )
 from app.logger import Logger
 from app.models import User
@@ -18,7 +18,7 @@ from app.repositories.db import DBRepository
 from app.repositories.redis import RedisRepository
 from app.schemas import (
     LinkResponse, LinkRequest, ShortCodePath,
-    LinkStatsResponse, LinksListResponse
+    LinkStatsResponse, LinksListResponse, PaginationParams
 )
 from app.service import (
     hash_str, normalize_url, generate_short_code,
@@ -59,7 +59,8 @@ async def create_short_code(
                 url_hash=hashed_url,
                 user_id=current_user.id
             )
-        except IntegrityError:
+        except IntegrityError as e:
+            Logger.warning(f"Integrity error during upsert: {e.orig}")
             continue
 
         if not short_code:

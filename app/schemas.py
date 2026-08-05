@@ -3,7 +3,7 @@ from collections import namedtuple
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import Path
+from fastapi import Path, Query
 from pydantic import BaseModel, ConfigDict, HttpUrl
 
 from app.config import settings
@@ -16,6 +16,18 @@ ShortCodePath = Annotated[
         max_length=settings.SHORT_CODE_LENGTH
     )
 ]
+
+
+class PaginationParams:
+    def __init__(
+            self,
+            page: int = Query(1, ge=1, le=1000),
+            size: int = Query(20, ge=1, le=50)
+    ):
+        self.page = page
+        self.size = size
+        self.offset = (page - 1) * size
+
 
 CachedLink = namedtuple("CachedLink", ["id", "long_url"])
 

@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import PaginationParams
+from app.schemas import PaginationParams
 from app.logger import LoggerMixin
 from app.models import User, Link, Click
 

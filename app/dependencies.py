@@ -2,7 +2,6 @@ from typing import Annotated
 
 import jwt
 from fastapi import Depends, HTTPException, status, Request
-from fastapi.params import Query
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,14 +76,3 @@ async def rate_limiter(
     if not requests_access:
         Logger.info("Requests limit reached")
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS)
-
-
-class PaginationParams:
-    def __init__(
-            self,
-            page: int = Query(1, ge=1, le=1000),
-            size: int = Query(20, ge=1, le=50)
-    ):
-        self.page = page
-        self.size = size
-        self.offset = (page - 1) * size

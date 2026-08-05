@@ -4,8 +4,7 @@ import string
 from secrets import choice
 from urllib.parse import urlparse, urlunparse
 
-from fastapi import HTTPException, status
-
+from app.exceptions import LinkNotFoundException
 from app.logger import Logger
 from app.repositories.db import DBRepository
 
@@ -56,8 +55,6 @@ async def get_link_by_short_code(short_code: str, db_repo: DBRepository):
 
     if not link:
         Logger.error(f"Url with short code {short_code} either expired or didn't exist")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-        )
+        raise LinkNotFoundException()
 
     return link
