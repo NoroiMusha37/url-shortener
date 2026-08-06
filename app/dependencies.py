@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.ipapi_client import IPAPIClient
+from app.ip_api_client import IPAPIClient
 from app.logger import Logger
 from app.models import User
 from app.repositories.db import DBRepository

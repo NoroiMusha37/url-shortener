@@ -5,7 +5,7 @@ from secrets import choice
 from urllib.parse import urlparse, urlunparse
 
 from app.exceptions import LinkNotFoundException
-from app.ipapi_client import IPAPIClient
+from app.ip_api_client import IPAPIClient
 from app.logger import Logger
 from app.repositories.db import DBRepository
 

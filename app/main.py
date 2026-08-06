@@ -6,7 +6,7 @@ from redis.asyncio import Redis
 
 from app.config import settings
 from app.exceptions import AppException, app_exception_handler
-from app.ipapi_client import IPAPIClient
+from app.ip_api_client import IPAPIClient
 from app.middlewares import StructlogContextMiddleware
 from app.repositories.redis import RedisRepository
 from app.routers import auth, links

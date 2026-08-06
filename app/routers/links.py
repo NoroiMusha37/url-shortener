@@ -12,7 +12,7 @@ from app.dependencies import (
     get_db_repo, get_current_user, get_current_admin_user,
     get_redis_repo, rate_limiter, get_ip_api_client
 )
-from app.ipapi_client import IPAPIClient
+from app.ip_api_client import IPAPIClient
 from app.logger import Logger
 from app.models import User
 from app.repositories.db import DBRepository
