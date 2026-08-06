@@ -12,26 +12,29 @@ class CacheRepository(LoggerMixin):
     def __init__(self, redis: Redis):
         self.redis = redis
 
-    async def set_short_code_by_url_hash(
+    async def set_short_code_by_url_hash_and_user(
             self,
             url_hash: str,
+            user_id: str,
             short_code: str
     ) -> None:
         self.log_info("Caching short code...")
         try:
             await self.redis.set(
-                f"hash:{url_hash}",
+                f"hash:{url_hash}:user:{user_id}",
                 short_code,
                 ex=settings.REDIS_CACHE_TTL
             )
         except RedisError as e:
             self.log_error("Redis error while setting short code", error=e)
 
-    async def get_short_code_by_url_hash(self, url_hash: str) -> str | None:
+    async def get_short_code_by_url_hash_and_user(
+            self, url_hash: str, user_id: str
+    ) -> str | None:
         self.log_info("Getting short code from cache...")
         try:
             return await self.redis.getex(
-                f"hash:{url_hash}",
+                f"hash:{url_hash}:user:{user_id}",
                 ex=settings.REDIS_CACHE_TTL
             )
         except RedisError as e:

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     REDIS_CACHE_TTL: int = 60 * 60
     RATE_LIMIT_TIME: int = 60 * 60
     RATE_LIMIT: int = 100
+    MAX_CONCURRENT_CREATIONS: int = 5
 
     model_config = SettingsConfigDict(
         env_file=ROOT_DIR / ".env",

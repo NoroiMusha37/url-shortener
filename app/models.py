@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timedelta
 
 import uuid6
-from sqlalchemy import String, DateTime, func, ForeignKey, Text, Uuid
+from sqlalchemy import String, DateTime, func, ForeignKey, Text, Uuid, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import expression
 
@@ -31,6 +31,11 @@ class User(Base):
 
 class Link(Base):
     __tablename__ = "links"
+    __table_args__ = (UniqueConstraint(
+        "url_hash",
+        "user_id",
+        name="uq_url_hash_user_id"
+    ),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
@@ -39,7 +44,7 @@ class Link(Base):
     )
     short_code: Mapped[str] = mapped_column(String(8), unique=True, index=True)
     long_url: Mapped[str] = mapped_column(Text)
-    url_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    url_hash: Mapped[str] = mapped_column(String(64), index=True)
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=func.now() + timedelta(days=365)

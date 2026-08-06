@@ -27,10 +27,12 @@ from app.service import (
 
 router = APIRouter(tags=["Links"], dependencies=[Depends(rate_limiter)])
 
+creation_semaphore = asyncio.Semaphore(settings.MAX_CONCURRENT_CREATIONS)
+
 
 @router.post(
-    "/links", 
-    response_model=LinkResponse, 
+    "/links",
+    response_model=LinkResponse,
     status_code=status.HTTP_201_CREATED
 )
 async def create_short_code(
@@ -42,33 +44,46 @@ async def create_short_code(
     Logger.info(f"Shortening url {data_in.url}...")
     hashed_url = hash_str(normalize_url(str(data_in.url)))
 
-    short_code = await redis_repo.cache.get_short_code_by_url_hash(hashed_url)
+    short_code = await (
+        redis_repo
+        .cache
+        .get_short_code_by_url_hash_and_user(hashed_url, current_user.id)
+    )
 
     if short_code:
         Logger.info("Cache hit")
         return LinkResponse(short_code=short_code, original_url=data_in.url)
 
     Logger.info("Cache missed")
-    for _ in range(settings.RETRIES_NUM):
-        new_code = generate_short_code(settings.SHORT_CODE_LENGTH)
+    async with creation_semaphore:
+        for _ in range(settings.RETRIES_NUM):
+            new_code = generate_short_code(settings.SHORT_CODE_LENGTH)
 
-        try:
-            short_code = await db_repo.links.upsert(
-                short_code=new_code,
-                long_url=str(data_in.url),
-                url_hash=hashed_url,
-                user_id=current_user.id
+            try:
+                short_code = await db_repo.links.upsert(
+                    short_code=new_code,
+                    long_url=str(data_in.url),
+                    url_hash=hashed_url,
+                    user_id=current_user.id
+                )
+            except IntegrityError as e:
+                Logger.warning(f"Integrity error during upsert: {e.orig}")
+                continue
+
+            if not short_code:
+                short_code = (
+                    await db_repo
+                    .links
+                    .get_short_code_by_url_hash_and_user(hashed_url, current_user.id)
+                )
+
+            await (
+                redis_repo
+                .cache
+                .set_short_code_by_url_hash_and_user(hashed_url, current_user.id, short_code)
             )
-        except IntegrityError as e:
-            Logger.warning(f"Integrity error during upsert: {e.orig}")
-            continue
 
-        if not short_code:
-            short_code = await db_repo.links.get_short_code_by_url_hash(hashed_url)
-
-        await redis_repo.cache.set_short_code_by_url_hash(hashed_url, short_code)
-        
-        return LinkResponse(short_code=short_code, original_url=data_in.url)
+            return LinkResponse(short_code=short_code, original_url=data_in.url)
 
     Logger.error(f"Hit collision {settings.RETRIES_NUM} times for {data_in.url}")
     raise HTTPException(
@@ -120,10 +135,10 @@ async def get_short_code(
     if link is None:
         Logger.info("Cache missed")
         link = await get_link_by_short_code(short_code, db_repo)
-        
+
         await redis_repo.cache.set_link_id_and_url_by_short_code(
-            short_code, 
-            str(link.id), 
+            short_code,
+            str(link.id),
             link.long_url
         )
     else:

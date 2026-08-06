@@ -46,8 +46,13 @@ class LinksRepository(LoggerMixin):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_short_code_by_url_hash(self, url_hash: str) -> str | None:
-        stmt = select(Link.short_code).where(Link.url_hash == url_hash)
+    async def get_short_code_by_url_hash_and_user(
+            self, url_hash: str, user_id: str
+    ) -> str | None:
+        stmt = (
+            select(Link.short_code)
+            .where(Link.url_hash == url_hash, Link.user_id == user_id)
+        )
         self.log_info("Getting link by url hash...")
 
         try:
@@ -82,7 +87,7 @@ class LinksRepository(LoggerMixin):
             user_id=user_id,
         )
                 .on_conflict_do_update(
-            index_elements=["url_hash"],
+            index_elements=["url_hash", "user_id"],
             set_={"expires_at": func.now() + timedelta(days=365)},
             where=(Link.expires_at < func.now() + timedelta(days=364))
         )

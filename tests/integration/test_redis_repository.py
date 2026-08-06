@@ -10,12 +10,12 @@ async def test_cache_repository_short_code(
 ) -> None:
 
     # Not found
-    val = await redis_repo.cache.get_short_code_by_url_hash("nonexistent")
+    val = await redis_repo.cache.get_short_code_by_url_hash_and_user("nonexistent", "user1")
     assert val is None
 
     # Set and get
-    await redis_repo.cache.set_short_code_by_url_hash("hash1", "code1")
-    val = await redis_repo.cache.get_short_code_by_url_hash("hash1")
+    await redis_repo.cache.set_short_code_by_url_hash_and_user("hash1", "user1", "code1")
+    val = await redis_repo.cache.get_short_code_by_url_hash_and_user("hash1", "user1")
     assert val == "code1"
 
 
