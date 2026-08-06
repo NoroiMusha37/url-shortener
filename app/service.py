@@ -1,0 +1,83 @@
+import hashlib
+import ipaddress
+import string
+from secrets import choice
+from urllib.parse import urlparse, urlunparse
+
+from app.exceptions import LinkNotFoundException
+from app.ip_api_client import IPAPIClient
+from app.logger import Logger
+from app.repositories.db import DBRepository
+
+ALPHABET = string.ascii_letters + string.digits
+
+
+def generate_short_code(length: int) -> str:
+    return "".join(choice(ALPHABET) for _ in range(length))
+
+
+def normalize_url(url: str) -> str:
+    parsed = urlparse(url.strip())
+    return urlunparse((
+        parsed.scheme.lower(),
+        parsed.netloc.lower(),
+        parsed.path.rstrip("/"),
+        parsed.params,
+        parsed.query,
+        parsed.fragment
+    ))
+
+
+def hash_str(url: str) -> str:
+    return hashlib.sha256(url.encode("utf-8")).hexdigest()
+
+
+def truncate_ip(ip_str: str) -> str:
+    if not ip_str:
+        return ""
+
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        if ip.version == 4:
+            network = ipaddress.ip_network(f"{ip}/24", strict=False)
+            return str(network.network_address)
+
+        elif ip.version == 6:
+            network = ipaddress.ip_network(f"{ip}/32", strict=False)
+            return str(network.network_address)
+    except ValueError:
+        return ""
+
+    return ""
+
+
+async def get_link_by_short_code(short_code: str, db_repo: DBRepository):
+    link = await db_repo.links.get_by_short_code(short_code)
+
+    if not link:
+        Logger.error(f"Url with short code {short_code} either expired or didn't exist")
+        raise LinkNotFoundException()
+
+    return link
+
+
+async def get_top_locations(
+        short_code: str,
+        count: int,
+        db_repo: DBRepository,
+        ip_api_client: IPAPIClient
+) -> dict[str, int]:
+    top_ips = await db_repo.clicks.get_top_ips(short_code, count)
+
+    locations = await ip_api_client.get_ips_data(list(top_ips.keys()))
+
+    res = {}
+    for location in locations:
+        if top_ips.get(location["query"]):
+            res[
+                (f"{location.get("country", "Unknown Country")} "
+                 f"- {location.get("regionName", "Unknown Region")} "
+                 f"- {location.get("city", "Unknown City")}")
+            ] = top_ips[location["query"]]
+
+    return res

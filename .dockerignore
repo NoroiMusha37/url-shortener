@@ -10,3 +10,4 @@ build/
 **/__pycache__/
 *.so
 .DS_Store
+tests/
