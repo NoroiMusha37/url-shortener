@@ -129,6 +129,8 @@ async def test_get_link_stats(
     data = response.json()
     assert data["total_clicks"] == 2
     assert data["last_24_hours_clicks"] == 2
+    assert "top_locations" in data
+    assert isinstance(data["top_locations"], dict)
 
 
 @pytest.mark.asyncio

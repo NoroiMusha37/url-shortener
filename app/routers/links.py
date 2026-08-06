@@ -10,8 +10,9 @@ from starlette.responses import RedirectResponse
 from app.config import settings
 from app.dependencies import (
     get_db_repo, get_current_user, get_current_admin_user,
-    get_redis_repo, rate_limiter
+    get_redis_repo, rate_limiter, get_ip_api_client
 )
+from app.ipapi_client import IPAPIClient
 from app.logger import Logger
 from app.models import User
 from app.repositories.db import DBRepository
@@ -22,7 +23,7 @@ from app.schemas import (
 )
 from app.service import (
     hash_str, normalize_url, generate_short_code,
-    truncate_ip, get_link_by_short_code
+    truncate_ip, get_link_by_short_code, get_top_locations
 )
 
 router = APIRouter(tags=["Links"], dependencies=[Depends(rate_limiter)])
@@ -100,10 +101,8 @@ async def get_links(
 ):
     Logger.info("Getting paginated links list...")
 
-    links, count = await asyncio.gather(
-        db_repo.links.get_paginated_list(current_user.id, params),
-        db_repo.links.get_user_links_count(current_user.id)
-    )
+    links = await db_repo.links.get_paginated_list(current_user.id, params)
+    count = await db_repo.links.get_user_links_count(current_user.id)
 
     return LinksListResponse(
         links=[
@@ -167,20 +166,25 @@ async def get_short_code(
 )
 async def get_link_stats(
         short_code: ShortCodePath,
-        db_repo: DBRepository = Depends(get_db_repo)
+        db_repo: DBRepository = Depends(get_db_repo),
+        ip_api_client: IPAPIClient = Depends(get_ip_api_client)
 ):
     Logger.info("Calculating stats...")
 
     _ = await get_link_by_short_code(short_code, db_repo)
 
-    total_clicks, last_24_hours_clicks, top_referrers = await asyncio.gather(
-        db_repo.clicks.get_total_clicks(short_code),
-        db_repo.clicks.get_last_24_hours_clicks(short_code),
-        db_repo.clicks.get_top_referrers(short_code, settings.TOP_REFERRERS)
+    total_clicks = await db_repo.clicks.get_total_clicks(short_code)
+    last_24_hours_clicks = await db_repo.clicks.get_last_24_hours_clicks(short_code)
+    top_referrers = await db_repo.clicks.get_top_referrers(
+        short_code, settings.TOP_REFERRERS
+    )
+    top_locations = await get_top_locations(
+        short_code, settings.TOP_LOCATIONS, db_repo, ip_api_client
     )
 
     return LinkStatsResponse(
         total_clicks=total_clicks,
         last_24_hours_clicks=last_24_hours_clicks,
-        top_referrers=top_referrers
+        top_referrers=top_referrers,
+        top_locations=top_locations
     )

@@ -226,6 +226,32 @@ class ClicksRepository(LoggerMixin):
             await self.session.rollback()
             raise
 
+    async def get_top_ips(
+            self, short_code: str, count: int
+    ) -> dict[str, int]:
+        stmt = (
+            select(Click.ip_address, func.count(Click.id).label("clicks_count"))
+            .join(Link)
+            .where(Link.short_code == short_code)
+            .group_by(Click.ip_address)
+            .order_by(func.count(Click.id).desc())
+            .limit(count)
+        )
+
+        self.log_info(f"Getting top {count} ips...")
+        try:
+            result = await self.session.execute(stmt)
+            ips = {}
+            for row in result.all():
+                if row.ip_address is not None:
+                    ips[row.ip_address] = row.clicks_count
+
+            return ips
+        except SQLAlchemyError as e:
+            self.log_error("DB query failed while trying to get top ips", error=e)
+            await self.session.rollback()
+            raise
+
 
 class DBRepository:
     def __init__(self, session: AsyncSession) -> None:

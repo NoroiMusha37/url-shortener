@@ -5,6 +5,7 @@ from secrets import choice
 from urllib.parse import urlparse, urlunparse
 
 from app.exceptions import LinkNotFoundException
+from app.ipapi_client import IPAPIClient
 from app.logger import Logger
 from app.repositories.db import DBRepository
 
@@ -42,7 +43,7 @@ def truncate_ip(ip_str: str) -> str:
             return str(network.network_address)
 
         elif ip.version == 6:
-            network = ipaddress.ip_network(f"{ip}/48", strict=False)
+            network = ipaddress.ip_network(f"{ip}/32", strict=False)
             return str(network.network_address)
     except ValueError:
         return ""
@@ -58,3 +59,25 @@ async def get_link_by_short_code(short_code: str, db_repo: DBRepository):
         raise LinkNotFoundException()
 
     return link
+
+
+async def get_top_locations(
+        short_code: str,
+        count: int,
+        db_repo: DBRepository,
+        ip_api_client: IPAPIClient
+) -> dict[str, int]:
+    top_ips = await db_repo.clicks.get_top_ips(short_code, count)
+
+    locations = await ip_api_client.get_ips_data(list(top_ips.keys()))
+
+    res = {}
+    for location in locations:
+        if top_ips.get(location["query"]):
+            res[
+                (f"{location.get("country", "Unknown Country")} "
+                 f"- {location.get("regionName", "Unknown Region")} "
+                 f"- {location.get("city", "Unknown City")}")
+            ] = top_ips[location["query"]]
+
+    return res

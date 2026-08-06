@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import (
 
 from app.config import settings
 from app.database import Base, get_db
-from app.dependencies import get_redis_repo
+from app.dependencies import get_redis_repo, get_ip_api_client
 from app.main import app
 from app.repositories.redis import RedisRepository
 
@@ -100,12 +100,21 @@ async def redis_repo() -> AsyncGenerator[RedisRepository, None]:
     await redis.aclose()
 
 
+class MockIPAPIClient:
+    async def get_country(self, ip: str) -> str:
+        return "Unknown"
+
+    async def get_ips_data(self, ips: list[str]) -> list[dict]:
+        return [{"query": ip, "country": "Test Country", "regionName": "Test Region", "city": "Test City"} for ip in ips]
+
+
 @pytest_asyncio.fixture(scope="function")
 async def client(
         db_session: AsyncSession, redis_repo: RedisRepository
 ) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides[get_db] = lambda: db_session
     app.dependency_overrides[get_redis_repo] = lambda: redis_repo
+    app.dependency_overrides[get_ip_api_client] = lambda: MockIPAPIClient()
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

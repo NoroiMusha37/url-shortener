@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
+from app.ipapi_client import IPAPIClient
 from app.logger import Logger
 from app.models import User
 from app.repositories.db import DBRepository
@@ -49,7 +50,7 @@ async def get_current_user(
 
 
 async def get_current_admin_user(
-    current_user: Annotated[User, Depends(get_current_user)],
+        current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
     if not current_user.admin:
         raise HTTPException(status_code=400, detail="User is not admin")
@@ -76,3 +77,7 @@ async def rate_limiter(
     if not requests_access:
         Logger.info("Requests limit reached")
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+def get_ip_api_client(request: Request) -> IPAPIClient:
+    return request.state.ip_api_client

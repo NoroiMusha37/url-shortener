@@ -72,6 +72,7 @@ class LinkStatsResponse(BaseModel):
     total_clicks: int
     last_24_hours_clicks: int
     top_referrers: dict[str, int]
+    top_locations: dict[str, int]
 
 
 class LinksListResponse(BaseModel):
