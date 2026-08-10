@@ -47,7 +47,8 @@ class Link(Base):
     url_hash: Mapped[str] = mapped_column(String(64), index=True)
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=func.now() + timedelta(days=365)
+        default=func.now() + timedelta(days=365),
+        index=True
     )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
 
