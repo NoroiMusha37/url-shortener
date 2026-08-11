@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from arq.connections import RedisSettings
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -28,3 +29,5 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+REDIS_SETTINGS = RedisSettings.from_dsn(settings.REDIS_URL)

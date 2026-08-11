@@ -1,6 +1,7 @@
 from typing import Annotated
 
 import jwt
+from arq import ArqRedis
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError

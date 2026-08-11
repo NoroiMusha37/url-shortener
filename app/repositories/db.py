@@ -1,7 +1,7 @@
 import uuid
 from datetime import timedelta
 
-from sqlalchemy import select, func, Sequence
+from sqlalchemy import select, func, Sequence, delete
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -136,6 +136,26 @@ class LinksRepository(LoggerMixin):
             return result.scalars().all()
         except SQLAlchemyError as e:
             self.log_error("DB query failed while trying to get paginated links", error=e)
+            await self.session.rollback()
+            raise
+
+    async def delete_expired(self) -> list[tuple[str, str, str]]:
+        stmt = (
+            delete(Link)
+            .where(Link.expires_at < func.now())
+            .returning(Link.url_hash, Link.user_id, Link.short_code)
+        )
+
+        self.log_info("Deleting expired links...")
+        try:
+            result = await self.session.execute(stmt)
+            await self.session.commit()
+            return [
+                (row.url_hash, str(row.user_id), row.short_code)
+                for row in result.all()
+            ]
+        except SQLAlchemyError as e:
+            self.log_error("DB query failed while trying to delete expired links", error=e)
             await self.session.rollback()
             raise
 

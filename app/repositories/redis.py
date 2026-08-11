@@ -75,6 +75,21 @@ class CacheRepository(LoggerMixin):
             self.log_error("Redis error while getting link", error=e)
             return None
 
+    async def invalidate_links(self, links: list[tuple[str, str, str]]):
+        if not links:
+            return
+
+        keys_to_delete = []
+        for url_hash, user_id, short_code in links:
+            keys_to_delete.append(f"hash:{url_hash}:user:{user_id}")
+            keys_to_delete.append(f"short_code:{short_code}")
+
+        self.log_info(f"Invalidating {len(keys_to_delete)} cache keys...")
+        try:
+            await self.redis.delete(*keys_to_delete)
+        except RedisError as e:
+            self.log_error("Redis error while invalidating links", error=e)
+
 
 class RateLimiterRepository(LoggerMixin):
     def __init__(self, redis: Redis):
