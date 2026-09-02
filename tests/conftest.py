@@ -3,18 +3,6 @@ import os
 from typing import AsyncGenerator
 
 import asyncpg
-
-# Override env vars before importing anything from the app
-os.environ["DATABASE_URL"] = (
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/url_shortener_test"
-)
-os.environ["REDIS_URL"] = "redis://localhost:6379/1"
-os.environ["JWT_SECRET_KEY"] = "testsecret_must_be_32_bytes_long_123"
-
-# --- CI/CD Config ---
-# os.environ["DATABASE_URL"] = os.getenv("TEST_DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/url_shortener_test")
-# os.environ["REDIS_URL"] = os.getenv("TEST_REDIS_URL", "redis://localhost:6379/1")
-
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -31,6 +19,13 @@ from app.database import Base, get_db
 from app.dependencies import get_redis_repo, get_ip_api_client
 from app.main import app
 from app.repositories.redis import RedisRepository
+
+os.environ["DATABASE_URL"] = os.getenv(
+    "DATABASE_URL",
+    "postgresql+asyncpg://postgres:postgres@localhost:5432/url_shortener_test"
+)
+os.environ["REDIS_URL"] = os.getenv("REDIS_URL", "redis://localhost:6379/1")
+os.environ["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "testsecret_must_be_32_bytes_long_123")
 
 
 @pytest.fixture(scope="session")
@@ -105,7 +100,8 @@ class MockIPAPIClient:
         return "Unknown"
 
     async def get_ips_data(self, ips: list[str]) -> list[dict]:
-        return [{"query": ip, "country": "Test Country", "regionName": "Test Region", "city": "Test City"} for ip in ips]
+        return [{"query": ip, "country": "Test Country", "regionName": "Test Region", "city": "Test City"} for ip in
+                ips]
 
 
 @pytest_asyncio.fixture(scope="function")
