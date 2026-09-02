@@ -12,6 +12,12 @@ The API is deployed on Render. You can access the live service and its documenta
 - **Swagger Documentation**: [https://url-shortener-514e.onrender.com/docs](https://url-shortener-514e.onrender.com/docs)
 - **ReDoc Documentation**: [https://url-shortener-514e.onrender.com/redoc](https://url-shortener-514e.onrender.com/redoc)
 
+You can use already created admin account:
+ - **username**: admin
+ - **password**: admin
+
+Or register your own non-admin account
+
 ---
 
 ## ✨ Features
